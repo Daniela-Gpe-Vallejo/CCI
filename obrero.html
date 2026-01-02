@@ -84,33 +84,39 @@
 
     let ultimoBulto = null;
 
-    async function buscarBulto() {
-      const idBultoInput = document.getElementById('idBulto');
-      const idBulto = idBultoInput.value.trim();
-      const infoDiv = document.getElementById('infoBulto');
-      const mensaje = document.getElementById('mensaje');
+        async function buscarBultos() {
+    const idBultoInput = document.getElementById('idBulto');
+    const idBulto = idBultoInput.value.trim();
+    const infoDiv = document.getElementById('infoBulto');
+    const mensaje = document.getElementById('mensaje');
 
-      if (!idBulto) {
+    if (!idBulto) {
         alert('Escanea o escribe el ID del bulto');
         return;
-      }
+    }
 
-      mensaje.textContent = '';
-      infoDiv.classList.add('d-none');
+    mensaje.textContent = '';
+    infoDiv.classList.add('d-none');
 
-      try {
+    try {
         const resp = await fetch(API_URL, {
-          method: 'POST',
-          body: JSON.stringify({
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
             action: 'getBulto',
             idBulto: idBulto
-          })
+        })
         });
+
         const data = await resp.json();
+        console.log('Respuesta getBulto:', data);  // para ver qué llega en F12
 
         if (!data.ok) {
-          mensaje.textContent = '⚠ ' + (data.error || 'No se pudo obtener el bulto');
-          return;
+        infoDiv.classList.remove('d-none');  // mostrar el bloque para ver el mensaje
+        mensaje.textContent = '⚠ ' + (data.error || 'No se pudo obtener el bulto');
+        return;
         }
 
         const b = data.bulto;
@@ -127,26 +133,28 @@
         piezasInput.value = b.piezasRegistradas || '';
 
         if (b.estado === 'registrado') {
-          badge.textContent = 'Registrado';
-          badge.className = 'badge bg-success badge-estado';
-          piezasInput.disabled = true;
-          btnGuardar.disabled = true;
-          mensaje.textContent = '✅ Este bulto ya fue registrado.';
+        badge.textContent = 'Registrado';
+        badge.className = 'badge bg-success badge-estado';
+        piezasInput.disabled = true;
+        btnGuardar.disabled = true;
+        mensaje.textContent = '✅ Este bulto ya fue registrado.';
         } else {
-          badge.textContent = 'Pendiente';
-          badge.className = 'badge bg-warning text-dark badge-estado';
-          piezasInput.disabled = false;
-          btnGuardar.disabled = false;
-          mensaje.textContent = '';
+        badge.textContent = 'Pendiente';
+        badge.className = 'badge bg-warning text-dark badge-estado';
+        piezasInput.disabled = false;
+        btnGuardar.disabled = false;
+        mensaje.textContent = '';
         }
 
         infoDiv.classList.remove('d-none');
 
-      } catch (err) {
+    } catch (err) {
         console.error(err);
+        infoDiv.classList.remove('d-none');  // mostrar el mensaje de error
         mensaje.textContent = '❌ Error de conexión con el servidor.';
-      }
     }
+}
+
 
     async function guardarPiezas() {
       if (!ultimoBulto) {
