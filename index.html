@@ -446,7 +446,7 @@
                 >
                   Limpiar
                 </button>
-                <button type="button" class="btn btn-primary btn-sm">
+                <button type="button" class="btn btn-primary btn-sm" onclick="guardarCaja()">
                   Guardar y generar QRs
                 </button>
               </div>
@@ -460,8 +460,7 @@
   <script>
 
     //Esta es la URL del Google Apps Script que maneja el backend, osea conecta la base de datos para que se conecte a Versel xdd
-    const API_URL = "https://script.google.com/macros/s/AKfycbzoTLKHBV3YrVVeGGO8p46iowKOeP5WENkyBBb8hgnYpTqouCPRJQUHq0evnuPZznj/exec";
-
+     const API_URL = "https://script.google.com/macros/s/AKfycbznafe3znRaCXIxCxBvzvUt5WI7A7an1GdGnk7-VZwaOIXBjU7ZgsF-eZxfFu7PG-TXHA/exec";
 
 
 
@@ -498,11 +497,37 @@
     }
 
     function agregarFila() {
-      const tbody = document.querySelector("#tablaPartes tbody");
-      const fila = document.createElement("tr");
-      fila.innerHTML = `
+    const tbody = document.querySelector("#tablaPartes tbody");
+    const fila = document.createElement("tr");
+    fila.innerHTML = `
+      <td data-label="Número de parte">
+        <input type="text" class="form-control" placeholder="Ej: AP18444Q" />
+      </td>
+      <td data-label="Bultos">
+        <input type="number" class="form-control" min="1" value="1" />
+      </td>
+      <td data-label="">
+        <button type="button" class="btn btn-outline-danger btn-sm" onclick="eliminarFila(this)">x</button>
+      </td>
+    `;
+    tbody.appendChild(fila);
+  }
+
+  function eliminarFila(boton) {
+    const fila = boton.closest("tr");
+    const tbody = document.querySelector("#tablaPartes tbody");
+    if (tbody.rows.length > 1) {
+      fila.remove();
+    }
+  }
+
+  function limpiarFormulario() {
+    document.getElementById("numeroCaja").value = "";
+    const tbody = document.querySelector("#tablaPartes tbody");
+    tbody.innerHTML = `
+      <tr>
         <td data-label="Número de parte">
-          <input type="text" class="form-control" placeholder="Ej: AP18444Q" />
+          <input type="text" class="form-control" placeholder="Ej: AP16692FF-2" />
         </td>
         <td data-label="Bultos">
           <input type="number" class="form-control" min="1" value="1" />
@@ -510,36 +535,69 @@
         <td data-label="">
           <button type="button" class="btn btn-outline-danger btn-sm" onclick="eliminarFila(this)">x</button>
         </td>
-      `;
-      tbody.appendChild(fila);
+      </tr>
+    `;
+  }
+
+  // 🚀 ESTA es la estrella: manda los datos al Apps Script
+  async function guardarCaja() {
+    const numeroCajaInput = document.getElementById("numeroCaja");
+    const numeroCaja = numeroCajaInput.value.trim();
+
+    if (!numeroCaja) {
+      alert("Pon el número de caja, plis 😅");
+      numeroCajaInput.focus();
+      return;
     }
 
-    function eliminarFila(boton) {
-      const fila = boton.closest("tr");
-      const tbody = document.querySelector("#tablaPartes tbody");
-      if (tbody.rows.length > 1) {
-        fila.remove();
+    const filas = document.querySelectorAll("#tablaPartes tbody tr");
+    const partes = [];
+
+    filas.forEach(fila => {
+      const inputs = fila.querySelectorAll("input");
+      const numeroParte = inputs[0].value.trim();
+      const bultos = inputs[1].value.trim();
+
+      if (numeroParte && bultos) {
+        partes.push({
+          numeroParte,
+          bultos: Number(bultos)
+        });
       }
+    });
+
+    if (partes.length === 0) {
+      alert("Agrega al menos un número de parte con sus bultos 🙏");
+      return;
     }
 
-    function limpiarFormulario() {
-      document.getElementById("numeroCaja").value = "";
-      const tbody = document.querySelector("#tablaPartes tbody");
-      tbody.innerHTML = `
-        <tr>
-          <td data-label="Número de parte">
-            <input type="text" class="form-control" placeholder="Ej: AP16692FF-2" />
-          </td>
-          <td data-label="Bultos">
-            <input type="number" class="form-control" min="1" value="1" />
-          </td>
-          <td data-label="">
-            <button type="button" class="btn btn-outline-danger btn-sm" onclick="eliminarFila(this)">x</button>
-          </td>
-        </tr>
-      `;
+    const payload = {
+      action: "crearCaja",
+      numeroCaja,
+      partes
+    };
+
+    try {
+      const resp = await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+
+      const data = await resp.json();
+
+      if (data.ok) {
+        alert("Caja guardada y bultos generados ✅");
+        console.log("Respuesta API:", data);
+        limpiarFormulario();
+      } else {
+        console.error("Error API:", data);
+        alert("Error al guardar: " + (data.error || "revisa la consola"));
+      }
+    } catch (err) {
+      console.error("Error de red:", err);
+      alert("No se pudo conectar con el servidor (Apps Script). Revisa la URL o tu conexión.");
     }
+  }
   </script>
 </body>
 </html>
-
