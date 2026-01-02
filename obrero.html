@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Registro de bultos - Obrero</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <style>
+    body {
+      background: #0b1f3b;
+      color: #f5f7ff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .card {
+      max-width: 420px;
+      width: 100%;
+      border-radius: 1rem;
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
+    }
+    .badge-estado {
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+  <div class="card text-dark">
+    <div class="card-body">
+      <h5 class="card-title mb-1">Registro de bulto</h5>
+      <p class="text-muted mb-3" style="font-size: 0.85rem;">
+        Escanea el código QR o pega el ID del bulto.
+      </p>
+
+      <div class="mb-3">
+        <label for="idBulto" class="form-label">ID del bulto</label>
+        <input type="text" id="idBulto" class="form-control form-control-sm" placeholder="Pega aquí el código">
+      </div>
+
+      <button class="btn btn-primary btn-sm w-100 mb-3" onclick="buscarBulto()">
+        Buscar bulto
+      </button>
+
+      <div id="infoBulto" class="d-none">
+        <hr>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div>
+            <div class="fw-semibold" id="txtParte"></div>
+            <div class="text-muted" id="txtCaja" style="font-size: 0.85rem;"></div>
+            <div class="text-muted" id="txtPosicion" style="font-size: 0.8rem;"></div>
+          </div>
+          <span id="badgeEstado" class="badge bg-secondary badge-estado"></span>
+        </div>
+
+        <div class="mb-3">
+          <label for="piezas" class="form-label">Piezas en este bulto</label>
+          <input type="number" id="piezas" class="form-control form-control-sm" min="0">
+        </div>
+
+        <div class="mb-3">
+          <label for="operario" class="form-label">Tu nombre</label>
+          <input type="text" id="operario" class="form-control form-control-sm" placeholder="Ej: Juan P.">
+        </div>
+
+        <button class="btn btn-success btn-sm w-100" id="btnGuardar" onclick="guardarPiezas()">
+          Guardar registro
+        </button>
+
+        <p id="mensaje" class="mt-3 mb-0" style="font-size: 0.85rem;"></p>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbznafe3znRaCXIxCxBvzvUt5WI7A7an1GdGnk7-VZwaOIXBjU7ZgsF-eZxfFu7PG-TXHA/exec";
+
+    let ultimoBulto = null;
+
+    async function buscarBulto() {
+      const idBultoInput = document.getElementById('idBulto');
+      const idBulto = idBultoInput.value.trim();
+      const infoDiv = document.getElementById('infoBulto');
+      const mensaje = document.getElementById('mensaje');
+
+      if (!idBulto) {
+        alert('Escanea o escribe el ID del bulto');
+        return;
+      }
+
+      mensaje.textContent = '';
+      infoDiv.classList.add('d-none');
+
+      try {
+        const resp = await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'getBulto',
+            idBulto: idBulto
+          })
+        });
+        const data = await resp.json();
+
+        if (!data.ok) {
+          mensaje.textContent = '⚠ ' + (data.error || 'No se pudo obtener el bulto');
+          return;
+        }
+
+        const b = data.bulto;
+        ultimoBulto = b;
+
+        document.getElementById('txtParte').textContent = `Parte: ${b.numeroParte}`;
+        document.getElementById('txtCaja').textContent = `Caja: ${b.idCaja}`;
+        document.getElementById('txtPosicion').textContent = `Bulto ${b.correlativo} de ${b.totalBultos}`;
+
+        const badge = document.getElementById('badgeEstado');
+        const piezasInput = document.getElementById('piezas');
+        const btnGuardar = document.getElementById('btnGuardar');
+
+        piezasInput.value = b.piezasRegistradas || '';
+
+        if (b.estado === 'registrado') {
+          badge.textContent = 'Registrado';
+          badge.className = 'badge bg-success badge-estado';
+          piezasInput.disabled = true;
+          btnGuardar.disabled = true;
+          mensaje.textContent = '✅ Este bulto ya fue registrado.';
+        } else {
+          badge.textContent = 'Pendiente';
+          badge.className = 'badge bg-warning text-dark badge-estado';
+          piezasInput.disabled = false;
+          btnGuardar.disabled = false;
+          mensaje.textContent = '';
+        }
+
+        infoDiv.classList.remove('d-none');
+
+      } catch (err) {
+        console.error(err);
+        mensaje.textContent = '❌ Error de conexión con el servidor.';
+      }
+    }
+
+    async function guardarPiezas() {
+      if (!ultimoBulto) {
+        alert('Primero busca un bulto');
+        return;
+      }
+
+      const piezasInput = document.getElementById('piezas');
+      const operarioInput = document.getElementById('operario');
+      const mensaje = document.getElementById('mensaje');
+
+      const piezas = Number(piezasInput.value);
+      const operario = operarioInput.value.trim();
+
+      if (isNaN(piezas) || piezas < 0) {
+        alert('Cantidad de piezas inválida');
+        return;
+      }
+
+      if (!operario) {
+        alert('Escribe tu nombre');
+        return;
+      }
+
+      try {
+        const resp = await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'registrarPiezas',
+            idBulto: ultimoBulto.idBulto,
+            piezas: piezas,
+            operario: operario
+          })
+        });
+
+        const data = await resp.json();
+
+        if (data.ok) {
+          mensaje.textContent = '✅ Bulto registrado correctamente.';
+          document.getElementById('badgeEstado').textContent = 'Registrado';
+          document.getElementById('badgeEstado').className = 'badge bg-success badge-estado';
+          piezasInput.disabled = true;
+          document.getElementById('btnGuardar').disabled = true;
+        } else {
+          mensaje.textContent = '⚠ ' + (data.error || 'No se pudo guardar el registro');
+        }
+
+      } catch (err) {
+        console.error(err);
+        mensaje.textContent = '❌ Error de conexión al guardar.';
+      }
+    }
+  </script>
+</body>
+</html>
